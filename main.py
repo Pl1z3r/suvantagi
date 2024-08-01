@@ -1,10 +1,24 @@
 from math import ceil
+from os import kill
 import random
 
-def selectOption(options:list, amount:int=1, repeat:int=1) -> list:
+def _selectionInput(prompt:str, options:list, amount:int=1, repeat:int=1) -> list:
+    '''
+    Prompts the user to select a specified number of options from a given list.
+    
+    Parameters:
+        options (list): The list of options to choose from.
+        amount (int, optional): The number of options to select. Default is 1.
+     repeat (int, optional): The maximum number of times an option can be selected. Default is 1.
+    
+    Returns:
+        list: A list of selected options.
+    '''
     chosen:list = []
-    print(f'Choose {amount}:')
+    print(prompt)
     while amount > 0:
+        print(f'Choose {amount}:')
+        
         for i in range(0,len(options)):
             print(f'{i}: {options[i]}')
         userChoice:str = input('>>')
@@ -18,13 +32,31 @@ def selectOption(options:list, amount:int=1, repeat:int=1) -> list:
         except IndexError:
             print(f"IndexError: '{choice}' is not an option.")   
             continue
-        if chosen.count(options[choice])+1 >= repeat:
+        if chosen.count(options[choice])+1 >= repeat and repeat != -1:
             chosen.append(options.pop(choice))
         else:
             chosen.append(options[choice])
         amount -= 1
     return chosen
 
+def _intInput(prompt:str, min:int, max:int) -> int:
+    '''
+    Asks for and returns an user integer input between a min and a max value.
+    '''
+    print(prompt)
+    while True:
+        print(f"Choose a number >= '{min}' and <= '{max}'.")
+        try:
+            userInput:str = input('>>')
+            userInt:int = int(userInput)
+            if min > userInt or userInt > max: raise IndexError
+            return userInt
+        except ValueError:
+            print(f"ValueError: '{userInput}' is Not a Number.")
+            continue
+        except IndexError:
+            print(f"IndexError: '{userInt}' is not in the range of options.")
+            continue
 
 class Character:
     def __init__(self) -> None:
@@ -97,29 +129,30 @@ class Character:
         repr += '\n'
         return repr
     
-    def selectRank(self, rand:bool) -> None:
+    def _selectRank(self, rand:bool) -> None:
         ranks = ['Sobrehumano', 'Superhumano', 'Milagre']
         subRanks = ['Baixo', 'Médio', 'Alto']
         if rand:
             rank = random.choice(ranks)
         else:
-            rank = selectOption(ranks)[0]
+            rank = _selectionInput('Selecione o Rank do personagem.', ranks)[0]
         limits:dict[str,list[int]] = {'Sobrehumano' : [5, 20],
                                       'Superhumano' : [20, 50],
                                       'Milagre' : [50, 70]}
         self.rank = rank
         self.rankLimits = limits[rank]
+        
         if rand:
             subRank = random.choice(subRanks)
         else:
-            subRank = selectOption(subRanks)[0]
+            subRank = _selectionInput('Selecione o SubRank do personagem.', subRanks)[0]
         subLimits:dict[str,int] = {'Baixo' : 25,
                                    'Médio' : 50,
                                    'Alto' : 100}
         self.subRank = subRank
         self.subRankLimit = subLimits[subRank]
     
-    def selectType(self, rand:bool):
+    def _selectType(self, rand:bool):
         types = {
             'Brutamontes' : {'atr' : ['Forca', 'Resis', 'Veloc', 'Vntad', 'Sentd', 'Mente', 'Spirt', 'Intel', 'Cosmo'],
                              'cna' : [5,3,2],
@@ -145,10 +178,10 @@ class Character:
         if rand:
             type = random.choice([*types.keys()])
         else:
-            type = selectOption([*types.keys()])[0]
+            type = _selectionInput('Selecione o Tipo de personagem.', [*types.keys()])[0]
         self.type = [type, types[type]]
 
-    def getNac(self) -> tuple:
+    def _selectNac(self, rand:bool) -> tuple:
         nac = {'Calor' : ['Dano Contínuo', 'Atravessar Armadura'],
                'Frio' : ['Atravessar Armadura', 'Congelamento'],
                'Relâmpago' : ['Atravessar Armadura', 'Ricochete', 'Paralisia'],
@@ -157,6 +190,7 @@ class Character:
                'Ar' : ['Barreira'],
                'Luz' : ['Atravessar Armadura', 'Camuflagem'],
                'Trevas' : ['Atravessar Armadura', 'Paralisia', 'Camuflagem']}
+
         match self.type[0]:
             case 'Ilusionista':
                 nac['Ilusão'] = ['Ataque Ilusorio']
@@ -166,51 +200,88 @@ class Character:
                 nac['Sekishiki'] = ['Ataque Espiritual']
                 if random.randint(0,1):
                     return 'Sekishiki', nac['Sekishiki']
-        r = random.choice([*nac.keys()])
-        return r, nac[r]
-
-    def createRandom(self, rand=True) -> object:
-        if self.type[0] == 'None': self.selectType(rand)
-        if self.rank == 'None' or self.subRank == 'None': self.selectRank(rand)
-
+        if rand:
+            choice = random.choice([*nac.keys()])
+        else:
+            choice = _selectionInput('Selecione uma Natureza Cosmica para o personagem.', [*nac.keys()])[0]
+        return choice, nac[choice]
+    
+    def _destributeAttributes(self, rand:bool) -> None:
         left:int = self.subRankLimit
 
         for key in self.type[1]['atr']:
+            if left == 0: break
             self.atr[key] = self.rankLimits[0]
-            amount = min(random.randint(0, int(left/2)), self.rankLimits[1]-self.atr[key])
+            if rand:
+                amount = min(random.randint(0, int(left/2)), self.rankLimits[1] - self.atr[key])
+            else:
+                amount = _intInput(f'Distribuir pontos em {key}, {left} pontos restantes.', 0, min(self.rankLimits[1] - self.atr[key], left))
             self.atr[key] = self.atr[key] + amount
             left -= amount
-        
-        
-        left = ceil(self.atr['Intel']/2) 
+
+    def _destributeIntelPoints(self, rand:bool) -> None:
+        left:int = ceil(self.atr['Intel']/2)
+        options:list[str] = ['Competencias', 'Naturezas Cosmicas', 'Artes Marciais']
         while left > 0:
-            n = random.choices([0,1,2],self.type[1]['cna'])
-            match n[0]:
-                case 0: # com
-                    i:str = str(random.choices([*self.com.keys()], self.type[1]['com'])[0])
-                    if self.com[i] < 5:
-                        self.com[i] += 1
-                        left -= 1
-                    continue
-                case 1: # nac
-                    if random.randint(1,3) % 2 == 0 and self.nac.keys():
-                        nac = random.choice([*self.nac.keys()])
-                        if self.nac[nac] < 3:
-                            self.nac[nac] += 1
+            if rand:
+                upgradeChoice = random.choices(options, self.type[1]['cna'])[0]
+                print(upgradeChoice)
+            else:
+                upgradeChoice = _selectionInput('Evoluir capacidades.', options)[0]
+            
+            match upgradeChoice:
+                case 'Competencias':
+                    if rand:
+                        com = str(random.choices([*self.com.keys()], self.type[1]['com'])[0])
+                        if self.com[com] < 5:
+                            self.com[com] += 1
                             left -= 1
                     else:
-                        nac = self.getNac()
+                        com = str(_selectionInput(f'Competência a evoluir, {left} pontos restantes.', [*self.com.keys()], repeat= -1)[0])
+                        amount = _intInput('Quantos pontos usar.', 0, min(5 - self.com[com], left))
+                        self.com[com] = self.com[com] + amount
+                        left -= amount
+                case 'Naturezas Cosmicas':
+                    if rand:
+                        if random.randint(1,3) % 2 == 0 and self.nac.keys():
+                            nac = random.choice([*self.nac.keys()])
+                            self.nac[nac] += 1
+                            left -=1
+                        else:
+                            nac = self._selectNac(rand)
+                            if nac[0] in self.nac.keys():
+                                if self.nac[nac[0]] < 3:
+                                    self.nac[nac[0]] += 1
+                                    left -= 1
+                            else:
+                                self.nac[nac[0]] = 1
+                                self.car[nac[0]] = nac[1]
+                                left -= 1
+                    
+                    else:
+                        nac = self._selectNac(rand)
                         if nac[0] in self.nac.keys():
                             if self.nac[nac[0]] < 3:
-                                self.nac[nac[0]] += 1
-                                left -= 1
+                                amount = _intInput('Quantos pontos usar.', 0, min(3 - self.nac[nac[0]], left))
+                                self.nac[nac[0]] += amount
+                                left -= amount
                         else:
-                            self.nac[nac[0]] = 1
+                            amount = _intInput('Quantos pontos usar.', 0, min(3, left))
+                            self.nac[nac[0]] = amount
                             self.car[nac[0]] = nac[1]
-                            left -= 1
-                case 2: # art
-                    left -= 0
+                            left -= amount
+
+                case 'Artes Marciais':
+                    left -= 0  
+
+    def create(self, rand:bool = False) -> object:
+        if self.type[0] == 'None': self._selectType(rand)
+        if self.rank == 'None' or self.subRank == 'None': self._selectRank(rand)
+
+        self._destributeAttributes(rand)
         
+        self._destributeIntelPoints(rand)
+
             #tec
         if self.nac:
             for i in range(0, self.atr['Intel']//10):
@@ -226,7 +297,7 @@ class Character:
 if __name__ == "__main__":
     import sys
     if '-r' in sys.argv:
-        c = Character().createRandom()
+        c = Character().create(rand=True)
     else:
-        c = Character().createRandom(False)
+        c = Character().create()
     print(c)
