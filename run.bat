@@ -16,4 +16,4 @@ pip install -r requirements.txt
 
 REM Executa o main.py
 echo Executando o main.py...
-python main.py %*
+python src\main.py %*
