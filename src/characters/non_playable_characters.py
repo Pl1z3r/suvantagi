@@ -160,7 +160,6 @@ class NonPlayableCharacter(Character):
         while left > 0:
             if rand:
                 upgradeChoice = random.choices(options, self.type[1]['cna'])[0]
-                print(upgradeChoice)
             else:
                 print('\n' * 100)
                 upgradeChoice = inputSelection('Evoluir capacidades.', options, repeat= -1)[0]
