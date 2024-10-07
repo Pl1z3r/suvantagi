@@ -1,5 +1,6 @@
 from characters import NonPlayableCharacter
 from user_input import inputSelection
+from sys import exit
 
 class charHandler:
     def __init__(self) -> None:
@@ -28,10 +29,11 @@ class charHandler:
 
     def menu(self) -> None:
         options:dict[str,callable] = {
-            'listar Personagens' : self.listChar,
-            'emprimir ficha de personagem' : self.printCharSheet,
-            'Criar Personagem' : self.createChar,
-            'Apagar personagem' : self.dumpChar,
+            'listar personagens' : self.listChar,
+            'print ficha de personagem' : self.printCharSheet,
+            'criar personagem' : self.createChar,
+            'apagar personagem' : self.dumpChar,
+            'sair' : exit
         }
         key = inputSelection('', [*options.keys()])
         print('\n' * 100)
